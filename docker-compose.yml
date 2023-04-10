@@ -1,0 +1,109 @@
+version: '3'
+
+services:
+  # ===================================
+  # BASE SERVICES
+  # ===================================
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: entraidev_node
+    restart: always
+    volumes:
+      - ./:/entraidev/
+    working_dir: /entraidev
+
+  npm:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: entraidev_npm
+    depends_on:
+      - node
+    entrypoint: npm
+    restart: always
+    volumes:
+      - ./:/entraidev/
+    working_dir: /entraidev
+
+  database:
+    container_name: entraidev_database
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: entraidev
+    image: postgres:15
+    networks:
+      - network_api
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ===================================
+  # DISCORD BOT SERVICES
+  # ===================================
+  bot:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: entraidev_discord_bot
+    depends_on:
+      - api
+    networks:
+      - network_api
+    restart: always
+    volumes:
+      - ./:/entraidev/
+    working_dir: /entraidev/apps/discord_bot
+  
+  # ===================================
+  # INTERNAL API SERVICES
+  # ===================================
+  ace:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: entraidev_ace
+    depends_on:
+      - database
+      - node
+    entrypoint: ["node", "ace"]
+    restart: always
+    volumes:
+      - ./:/entraidev/
+    working_dir: /entraidev/apps/entraidev_api
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: entraidev_api
+    depends_on:
+      - database
+      - node
+    entrypoint: [ "node", "ace", "serve", "--watch" ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.traefik.loadbalancer.server.port=3333"
+      - "traefik.http.routers.entraidev.tls=true"
+      - "traefik.http.routers.entraidev.rule=Host(`entraidev.traefik.me`)"
+      - "traefik.http.routers.entraidev.tls.domains[0].main=entraidev.traefik.me"
+      - "traefik.http.routers.entraidev.tls.domains[0].sans=entraidev-*.traefik.me"
+      - "traefik.docker.network=local_environment_web"
+    networks:
+      - network_api
+      - local_environment_web
+    restart: always
+    volumes:
+      - ./:/entraidev/
+    working_dir: /entraidev/apps/entraidev_api
+
+networks:
+  network_api:
+    driver: bridge
+  local_environment_web:
+    external: true
+
+volumes:
+  postgres_data:

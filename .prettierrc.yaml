@@ -1,0 +1,9 @@
+arrowParens: "always"
+singleQuote: true
+useTabs: true
+trailingComma: "all"
+parser: "typescript"
+semi: true
+quoteProps: "consistent"
+bracketSpacing: true
+printWidth: 100
